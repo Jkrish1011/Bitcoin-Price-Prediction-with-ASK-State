@@ -2,6 +2,14 @@
 
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+import { Orbitron } from 'next/font/google';
+
+const orbitron = Orbitron({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-orbitron',
+});
 
 type CardNavLink = {
   label: string;
@@ -161,7 +169,7 @@ const CardNav: React.FC<CardNavProps> = ({
 
   return (
     <div
-      className={`card-nav-container absolute left-1/2 -translate-x-1/2 w-[90%] max-w-[800px] z-[99] top-[1.2em] md:top-[2em] ${className}`}
+      className={`${orbitron.variable} card-nav-container absolute left-1/2 -translate-x-1/2 w-[90%] max-w-[800px] z-[99] top-[1.2em] md:top-[2em] ${className}`}
     >
       <nav
         ref={navRef}

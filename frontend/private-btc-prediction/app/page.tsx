@@ -7,18 +7,18 @@ import LandingPage from './components/LandingPage'
 
 const page = () => {
   return (
-        <div className="relative min-h-screen w-full overflow-hidden">
-          {/* Background */}
-          <div className="fixed inset-0 -z-10">
-            <LandingPageBackground />
-          </div>
-          
-          {/* Content */}
-          <div className="relative z-10">
-            <NavBar />
-            <LandingPage />
-          </div>
-        </div>
+    <div className="relative min-h-screen w-full">
+      {/* Background - Fixed and full viewport */}
+      <LandingPageBackground />
+      
+      {/* Content - Relative container for the rest of the page */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        <NavBar />
+        <main className="flex-grow">
+          <LandingPage />
+        </main>
+      </div>
+    </div>
   )
 }
 
