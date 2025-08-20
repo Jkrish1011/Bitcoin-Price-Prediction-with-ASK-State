@@ -37,9 +37,7 @@ const AboutPage = () => {
                         speed={0.5}
                         scrambleChars=":."
                     >
-                    <p>
-                        The "Private Prediction Oracle with ASK State Tracking" dApp enables users to place private bets on future events using Discreet Log Contracts (DLCs) on Bitcoin's testnet.
-                    </p>
+                    The "Private Prediction Oracle with ASK State Tracking" dApp enables users to place private bets on future events using Discreet Log Contracts (DLCs) on Bitcoin's testnet.
                     </ScrambledText>
                     <ScrambledText
                         className="text-xl md:text-2xl text-gray-300 font-mono tracking-wide"
@@ -48,9 +46,7 @@ const AboutPage = () => {
                         speed={0.5}
                         scrambleChars=":."
                     >
-                    <p>
                         DLCs provide conditional payments based on oracle outcomes, hidden via Taproot for privacy. An outsourced Anonymous Outsourced Statekeeping (ASK) module runs server-side to anonymously track bet histories and states.
-                    </p>
                     </ScrambledText>
                     <ScrambledText
                         className="text-xl md:text-2xl text-gray-300 font-mono tracking-wide"
@@ -59,9 +55,7 @@ const AboutPage = () => {
                         speed={0.5}
                         scrambleChars=":."
                     >
-                    <p>
                         This project bridges Bitcoin's UTXO model with advanced cryptography, enabling private, secure predictions with complete anonymity.
-                    </p>
                     </ScrambledText>
                     </div>
                 </div>
