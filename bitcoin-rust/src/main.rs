@@ -13,6 +13,7 @@ const DUMMY_UTXO_AMOUNT: Amount = Amount::from_sat(20_000_000);
 const SPEND_AMOUNT: Amount = Amount::from_sat(5_000_000);
 const CHANGE_AMOUNT: Amount = Amount::from_sat(14_999_000);
 
+mod taproot;
 
 /*
     senders_keys is generic over the Signing trait. 
@@ -52,69 +53,72 @@ fn dummy_unspent_transaction_output(wpkh: &WPubkeyHash) -> (OutPoint, TxOut) {
 }
 
 fn main() {
-    let secp = Secp256k1::new();
+    // let secp = Secp256k1::new();
 
-    // Get a secret key we control and the pubkeyhash of the associate pubkey.
-    // In a production application, this would come from the wallet.
-    let (sk, wpkh) = senders_keys(&secp);
+    // // Get a secret key we control and the pubkeyhash of the associate pubkey.
+    // // In a production application, this would come from the wallet.
+    // let (sk, wpkh) = senders_keys(&secp);
 
-    // Get an address to send to.
-    let address = receivers_address();
+    // // Get an address to send to.
+    // let address = receivers_address();
 
-    // Get an unspent output that is locked to the key above the we control
-    // In production, these would come from the chain.
-    let (dummy_out_point, dummy_utxo) = dummy_unspent_transaction_output(&wpkh);
+    // // Get an unspent output that is locked to the key above the we control
+    // // In production, these would come from the chain.
+    // let (dummy_out_point, dummy_utxo) = dummy_unspent_transaction_output(&wpkh);
 
-    // The input for the transaction we are constructing
-    let input = TxIn {
-        previous_output: dummy_out_point, // The dummy output we are spending,
-        script_sig: ScriptBuf::default(), // For a p2wpkh script_sig is empty
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        witness: Witness::default(),
-    };
+    // // The input for the transaction we are constructing
+    // let input = TxIn {
+    //     previous_output: dummy_out_point, // The dummy output we are spending,
+    //     script_sig: ScriptBuf::default(), // For a p2wpkh script_sig is empty
+    //     sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+    //     witness: Witness::default(),
+    // };
 
-    // The spend output is locked to a key controlled by the receiver.
-    let spend = TxOut {
-        value: SPEND_AMOUNT,
-        script_pubkey: address.script_pubkey(),
-    };
+    // // The spend output is locked to a key controlled by the receiver.
+    // let spend = TxOut {
+    //     value: SPEND_AMOUNT,
+    //     script_pubkey: address.script_pubkey(),
+    // };
 
-    // The change output is locked to a key controlled by us.
-    let change = TxOut {
-        value: CHANGE_AMOUNT,
-        script_pubkey: ScriptBuf::new_p2wpkh(&wpkh),
-    };
+    // // The change output is locked to a key controlled by us.
+    // let change = TxOut {
+    //     value: CHANGE_AMOUNT,
+    //     script_pubkey: ScriptBuf::new_p2wpkh(&wpkh),
+    // };
 
-    // The transaction we want to sign and broadcast
-    let mut unsigned_tx = Transaction {
-        version: transaction::Version::TWO, // Post BIP-68
-        lock_time: absolute::LockTime::ZERO, // Ignore the locktime
-        input: vec![input],
-        output: vec![spend, change],
-    };
+    // // The transaction we want to sign and broadcast
+    // let mut unsigned_tx = Transaction {
+    //     version: transaction::Version::TWO, // Post BIP-68
+    //     lock_time: absolute::LockTime::ZERO, // Ignore the locktime
+    //     input: vec![input],
+    //     output: vec![spend, change],
+    // };
 
-    let input_index = 0;
+    // let input_index = 0;
 
-    // get the sighash to sign
-    let sighash_type = EcdsaSighashType::All;
-    let mut sighasher = SighashCache::new(&mut unsigned_tx);
-    let sighash = sighasher
-                    .p2wpkh_signature_hash(input_index, &dummy_utxo.script_pubkey, DUMMY_UTXO_AMOUNT, sighash_type)
-                    .expect("failed to create sighash");
+    // // get the sighash to sign
+    // let sighash_type = EcdsaSighashType::All;
+    // let mut sighasher = SighashCache::new(&mut unsigned_tx);
+    // let sighash = sighasher
+    //                 .p2wpkh_signature_hash(input_index, &dummy_utxo.script_pubkey, DUMMY_UTXO_AMOUNT, sighash_type)
+    //                 .expect("failed to create sighash");
     
-    let msg = Message::from(sighash);
-    let signature = secp.sign_ecdsa(&msg, &sk);
+    // let msg = Message::from(sighash);
+    // let signature = secp.sign_ecdsa(&msg, &sk);
 
-    let signature = bitcoin::ecdsa::Signature {signature, sighash_type};
-    let pk = sk.public_key(&secp);
+    // let signature = bitcoin::ecdsa::Signature {signature, sighash_type};
+    // let pk = sk.public_key(&secp);
 
-    *sighasher.witness_mut(input_index).unwrap() = Witness::p2wpkh(&signature, &pk);
+    // *sighasher.witness_mut(input_index).unwrap() = Witness::p2wpkh(&signature, &pk);
 
-    // Get the signed transaction.
-    let tx = sighasher.into_transaction();
+    // // Get the signed transaction.
+    // let tx = sighasher.into_transaction();
 
-    // Transaction signed and ready to broadcast.
-    println!("{:#?}", tx);
+    // // Transaction signed and ready to broadcast.
+    // println!("{:#?}", tx);
+
+
+    taproot::taproot();
 
 
 }
