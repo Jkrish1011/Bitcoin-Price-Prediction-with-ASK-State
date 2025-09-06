@@ -1,45 +1,120 @@
-use bitcoin::{Network, Address, XOnlyPublicKey};
-// use miniscrip::descriptor::Descriptor;
-// use miniscript::{policy, ToPublicKey};
-// use secp256k1::{Secp256k1, KeyPair, rand::rngs::OsRng};
-use secp256k1::{Secp256k1, Keypair};
-use rand::rngs::OsRng;
 use std::str::FromStr;
 
-use miniscript;
+use bitcoin::hashes::Hash;
+use bitcoin::locktime::absolute;
+use bitcoin::secp256k1::{rand, Message, Secp256k1, SecretKey, Signing};
+use bitcoin::sighash::{EcdsaSighashType, SighashCache};
+use bitcoin::{
+    transaction, Address, Amount, Network, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
+    Txid, WPubkeyHash, Witness,
+};
 
+const DUMMY_UTXO_AMOUNT: Amount = Amount::from_sat(20_000_000);
+const SPEND_AMOUNT: Amount = Amount::from_sat(5_000_000);
+const CHANGE_AMOUNT: Amount = Amount::from_sat(14_999_000);
+
+
+/*
+    senders_keys is generic over the Signing trait. 
+    This is used to indicate that is an instance of Secp256k1 and can be used for signing.
+
+    senders_keys generates a random private key and derives the corresponding public key hash. 
+*/ 
+fn senders_keys<C: Signing>(secp: &Secp256k1<C>) -> (SecretKey, WPubkeyHash) {
+    let sk = SecretKey::new(&mut rand::thread_rng());
+    let pk = bitcoin::PublicKey::new(sk.public_key(secp));
+    let wpkh = pk.wpubkey_hash().expect("key is compressed");
+
+    (sk, wpkh)
+}
+
+// generates a receiver address.
+fn receivers_address() -> Address {
+    let addr = Address::from_str("bc1q7cyrfmck2ffu2ud3rn5l5a8yv6f0chkp0zpemf")
+        .expect("a valid signature")
+        .require_network(Network::Bitcoin)
+        .expect("valid address for mainnet");
+
+    addr
+}
+
+// generates a dummy unspent transaction output (UTXO). 
+fn dummy_unspent_transaction_output(wpkh: &WPubkeyHash) -> (OutPoint, TxOut) {
+    let script_pubkey = ScriptBuf::new_p2wpkh(wpkh);
+    
+    let out_point = OutPoint {
+        txid: Txid::all_zeros(),
+        vout: 0,
+    };
+
+    let utxo = TxOut {value: DUMMY_UTXO_AMOUNT, script_pubkey};
+    (out_point, utxo)
+}
 
 fn main() {
     let secp = Secp256k1::new();
-    let mut rng = OsRng;
 
-    // Generate internal, Alice, Bob keys
-    let internal_kp = Keypair::new(&secp, &mut rng);
-    let alice_kp = Keypair::new(&secp, &mut rng);
-    let bob_kp = Keypair::new(&secp, &mut rng);
+    // Get a secret key we control and the pubkeyhash of the associate pubkey.
+    // In a production application, this would come from the wallet.
+    let (sk, wpkh) = senders_keys(&secp);
 
-    let internal_pk = XOnlyPublicKey::from_keypair(&internal_kp).0;
-    let alice_pk = XOnlyPublicKey::from_keypair(&alice_kp).0;
-    let bob_pk = XOnlyPublicKey::from_keypair(&bob_kp).0;
+    // Get an address to send to.
+    let address = receivers_address();
 
-    println!("Internal PK: {}", internal_pk);
-    println!("Alice PK: {}", alice_pk);
-    println!("Bob PK: {}", bob_pk);
+    // Get an unspent output that is locked to the key above the we control
+    // In production, these would come from the chain.
+    let (dummy_out_point, dummy_utxo) = dummy_unspent_transaction_output(&wpkh);
 
-    let desc = miniscript::Descriptor::<miniscript::bitcoin::PublicKey>::from_str("\
-        sh(wsh(or_d(\
-        c:pk_k(020e0338c96a8870479f2396c373cc7696ba124e8635d41b0ea581112b67817261),\
-        c:pk_k(0250863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b2352)\
-        )))\
-    ").unwrap();
+    // The input for the transaction we are constructing
+    let input = TxIn {
+        previous_output: dummy_out_point, // The dummy output we are spending,
+        script_sig: ScriptBuf::default(), // For a p2wpkh script_sig is empty
+        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+        witness: Witness::default(),
+    };
 
-    println!("Descriptor: {}", desc);
+    // The spend output is locked to a key controlled by the receiver.
+    let spend = TxOut {
+        value: SPEND_AMOUNT,
+        script_pubkey: address.script_pubkey(),
+    };
 
-    // Derive the P2SH address
-    assert_eq!(desc.address(miniscript::bitcoin::Network::Bitcoin).unwrap().to_string(), "3CJxbQBfWAe1ZkKiGQNEYrioV73ZwvBWns");
+    // The change output is locked to a key controlled by us.
+    let change = TxOut {
+        value: CHANGE_AMOUNT,
+        script_pubkey: ScriptBuf::new_p2wpkh(&wpkh),
+    };
 
-    assert!(desc.sanity_check().is_ok());
-    // assert_eq!(desc.max_weight_to_satisfy().unwrap().to_wu(), 288);
-    println!("Max weight to satisfy: {}", desc.max_weight_to_satisfy().unwrap().to_wu());
+    // The transaction we want to sign and broadcast
+    let mut unsigned_tx = Transaction {
+        version: transaction::Version::TWO, // Post BIP-68
+        lock_time: absolute::LockTime::ZERO, // Ignore the locktime
+        input: vec![input],
+        output: vec![spend, change],
+    };
+
+    let input_index = 0;
+
+    // get the sighash to sign
+    let sighash_type = EcdsaSighashType::All;
+    let mut sighasher = SighashCache::new(&mut unsigned_tx);
+    let sighash = sighasher
+                    .p2wpkh_signature_hash(input_index, &dummy_utxo.script_pubkey, DUMMY_UTXO_AMOUNT, sighash_type)
+                    .expect("failed to create sighash");
+    
+    let msg = Message::from(sighash);
+    let signature = secp.sign_ecdsa(&msg, &sk);
+
+    let signature = bitcoin::ecdsa::Signature {signature, sighash_type};
+    let pk = sk.public_key(&secp);
+
+    *sighasher.witness_mut(input_index).unwrap() = Witness::p2wpkh(&signature, &pk);
+
+    // Get the signed transaction.
+    let tx = sighasher.into_transaction();
+
+    // Transaction signed and ready to broadcast.
+    println!("{:#?}", tx);
+
 
 }
