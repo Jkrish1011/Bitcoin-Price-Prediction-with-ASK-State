@@ -14,6 +14,8 @@ const SPEND_AMOUNT: Amount = Amount::from_sat(5_000_000);
 const CHANGE_AMOUNT: Amount = Amount::from_sat(14_999_000);
 
 mod taproot;
+mod psbt_segwit;
+mod psbt_taproot;
 
 /*
     senders_keys is generic over the Signing trait. 
@@ -118,7 +120,8 @@ fn main() {
     // println!("{:#?}", tx);
 
 
-    taproot::taproot();
-
+    // taproot::taproot();
+    // psbt_segwit::pbst();
+    psbt_taproot::psbt_taproot();
 
 }
